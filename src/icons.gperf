@@ -1,0 +1,73 @@
+%{
+#include <stddef.h>
+#include <stdlib.h>
+
+#if defined(__clang__) && defined(__has_warning)
+# if __has_warning("-Wimplicit-fallthrough")
+#  pragma clang diagnostic ignored "-Wimplicit-fallthrough"
+# endif
+# if __has_warning("-Wsuggest-attribute=pure")
+#  pragma clang diagnostic ignored "-Wsuggest-attribute=pure"
+# endif
+#elif defined(__GNUC__)
+# if (__GNUC__ >= 7)
+#  pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+# endif
+# pragma GCC diagnostic ignored "-Wsuggest-attribute=pure"
+#endif
+
+const struct icon *get_icon(const char *, size_t);
+/* Command-line:
+    gperf -m 10 -D -t -L ANSI-C -E -I -C -K ext -N get_icon icons.gperf  */
+%}
+struct icon {
+    const char *ext;
+    const char *symbol;
+};
+%%
+"c", "\ue51e"
+"cpp", "\ue51d"
+"h", "\ue51e"
+"hpp", "\ue51d"
+"lua", "\ue520"
+"go", "\uf40d"
+"php", "\uf81e"
+"py", "\uf81f"
+"exe", "\uf17a"
+"db", "\uf1c0"
+"diff", "\uf440"
+"patch", "\uf440"
+"pdf", "\uf1c1"
+"jpeg", "\uf1c5"
+"jpg", "\uf1c5"
+"png", "\uf1c5"
+"mp4", "\uf03d"
+"mp3", "\uf001"
+"sh", "\ue695"
+"xz", "\uf410"
+"gz", "\uf410"
+"bz2", "\uf410"
+"zip", "\uf410"
+"ebuild", "\uf30d"
+"deb", "\uf306"
+"apk", "\uf17b"
+"aab", "\uf17b"
+"doc", "\uf1c2"
+"docx", "\uf1c2"
+"txt", "\uf15c"
+"epub", "\ue28a"
+"java", "\ue638"
+"jar", "\uee638"
+"js", "\uf81d"
+"log", "\uf18d"
+"pem", "\uf2bc"
+"md", "\uf48a"
+"gitconfig", "\uf408"
+"gitignore", "\uf408"
+"gitmodules", "\uf408"
+"cfg", "\uf423"
+"ini", "\uf423"
+"key", "\ue50a"
+"hs", "\ue677"
+"uml", "\uf0e8"
+"puml", "\uf0e8"

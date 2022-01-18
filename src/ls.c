@@ -96,6 +96,7 @@
 #include "human.h"
 #include "filemode.h"
 #include "filevercmp.h"
+#include "icons.h"
 #include "idcache.h"
 #include "ls.h"
 #include "mbswidth.h"
@@ -290,6 +291,7 @@ static void print_horizontal (void);
 static int format_user_width (uid_t u);
 static int format_group_width (gid_t g);
 static void print_long_format (const struct fileinfo *f);
+static void print_icon (const struct fileinfo *f);
 static void print_many_per_line (void);
 static size_t print_name_with_quoting (const struct fileinfo *f,
                                        bool symlink_target,
@@ -505,6 +507,10 @@ static bool print_owner = true;
 /* True means to display author information.  */
 
 static bool print_author;
+
+/* True means to display icons.  */
+
+static bool print_icons;
 
 /* True means to display group information.  -G and -o turn this off.  */
 
@@ -845,6 +851,7 @@ enum
   TIME_OPTION,
   TIME_STYLE_OPTION,
   ZERO_OPTION,
+  ICON_OPTION,
 };
 
 static struct option const long_options[] =
@@ -893,6 +900,7 @@ static struct option const long_options[] =
   {"block-size", required_argument, NULL, BLOCK_SIZE_OPTION},
   {"context", no_argument, 0, 'Z'},
   {"author", no_argument, NULL, AUTHOR_OPTION},
+  {"icon", no_argument, NULL, ICON_OPTION},
   {GETOPT_HELP_OPTION_DECL},
   {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
@@ -2121,6 +2129,10 @@ decode_switches (int argc, char **argv)
 
         case AUTHOR_OPTION:
           print_author = true;
+          break;
+
+        case ICON_OPTION:
+          print_icons = true;
           break;
 
         case HIDE_OPTION:
@@ -3357,6 +3369,7 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
   if (command_line_arg
       || print_hyperlink
       || format_needs_stat
+      || print_icons
       /* When coloring a directory (we may know the type from
          direct.d_type), we have to stat it in order to indicate
          sticky and/or other-writable attributes.  */
@@ -3523,7 +3536,7 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
         }
 
       if (S_ISLNK (f->stat.st_mode)
-          && (format == long_format || check_symlink_mode))
+          && (format == long_format || check_symlink_mode || print_icons))
         {
           struct stat linkstats;
 
@@ -3538,7 +3551,7 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
           /* Avoid following symbolic links when possible, ie, when
              they won't be traced and when no indicator is needed.  */
           if (linkname
-              && (file_type <= indicator_style || check_symlink_mode)
+              && (file_type <= indicator_style || check_symlink_mode || print_icons)
               && stat_for_mode (linkname, &linkstats) == 0)
             {
               f->linkok = true;
@@ -4122,6 +4135,7 @@ print_current_files (void)
     case one_per_line:
       for (i = 0; i < cwd_n_used; i++)
         {
+          print_icon(sorted_file[i]);
           print_file_name_and_frills (sorted_file[i], 0);
           putchar (eolbyte);
         }
@@ -4478,6 +4492,7 @@ print_long_format (const struct fileinfo *f)
     }
 
   dired_outbuf (buf, p - buf);
+  print_icon(f);
   size_t w = print_name_with_quoting (f, false, &dired_obstack, p - buf);
 
   if (f->filetype == symbolic_link)
@@ -5107,6 +5122,9 @@ length_of_file_name_and_frills (const struct fileinfo *f)
       len += (c != 0);
     }
 
+  if (print_icons)
+    len += 3;
+
   return len;
 }
 
@@ -5133,6 +5151,7 @@ print_many_per_line (void)
           struct fileinfo const *f = sorted_file[filesno];
           size_t name_length = length_of_file_name_and_frills (f);
           size_t max_name_length = line_fmt->col_arr[col++];
+          print_icon(f);
           print_file_name_and_frills (f, pos);
 
           filesno += rows;
@@ -5143,6 +5162,76 @@ print_many_per_line (void)
           pos += max_name_length;
         }
       putchar (eolbyte);
+    }
+}
+
+static void
+print_icon_ext (const struct fileinfo *f)
+{
+    const struct icon *icon;
+    char *ext;
+
+    if ((ext = strrchr(f->name, '.')) == NULL) {
+      printf("%s  ", "\uf016");
+      return;
+    }
+
+    ext++;
+
+    icon = get_icon(ext, strlen(ext));
+
+    if (icon == NULL) {
+      printf("%s  ", "\uf016");
+      return;
+    }
+
+    printf("%s  ", icon->symbol);
+}
+
+static void
+print_icon (const struct fileinfo *f)
+{
+    if (!print_icons)
+      return;
+
+    if (f->stat_ok) {
+      if (S_ISREG (f->stat.st_mode))
+        print_icon_ext(f);
+      else if (S_ISDIR (f->stat.st_mode))
+        printf("%s  ", "\uf115");
+      else if (S_ISLNK (f->stat.st_mode))
+        if (S_ISDIR (f->linkmode))
+          printf("%s  ", "\uf482");
+        else
+          printf("%s  ", "\uf481");
+      else if (S_ISFIFO (f->stat.st_mode))
+        printf("%s  ", "\uf731");
+      else if (S_ISSOCK (f->stat.st_mode))
+        printf("%s  ", "\uf6a7");
+      else
+        printf("%s  ", "\uf016");
+    } else {
+      switch (f->filetype)
+        {
+        case directory:
+          printf("%s  ", "\uf115");
+          break;
+        case symbolic_link:
+          printf("%s  ", "\uf481");
+          break;
+        case sock:
+          printf("%s  ", "\uf6a7");
+          break;
+        case fifo:
+          printf("%s  ", "\uf731");
+          break;
+        case normal:
+          print_icon_ext(f);
+          break;
+        default:
+          printf("%s  ", "\uf016");
+          break;
+        }
     }
 }
 
